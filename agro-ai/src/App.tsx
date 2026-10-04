@@ -8,27 +8,51 @@ type Analysis = {
   visibleDamage: number;
   symptomsDetected: string[];
   possibleCause: string;
+  imageFindings: string;
   weatherRisk: string;
   organicTreatment: string[];
   chemicalTreatment: string[];
   prevention: string[];
   farmerAdvice: string;
   bengaliAdvice: string;
+  sprayingAdvice: string;
+  marketRisk: string;
+};
+
+type Weather = {
+  location?: string;
+  temperature?: number;
+  humidity?: number;
+  precipitation?: number;
+  rain?: number;
+  windSpeed?: number;
 };
 
 function App() {
+  const [farmerName, setFarmerName] = useState("");
   const [crop, setCrop] = useState("Rice");
   const [plantingDate, setPlantingDate] = useState("");
-  const [location, setLocation] = useState("Bangladesh");
+  const [location, setLocation] = useState("");
   const [symptoms, setSymptoms] = useState("");
-  const [farmerName, setFarmerName] = useState("");
+
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [weather, setWeather] = useState<Weather | null>(null);
   const [error, setError] = useState("");
 
-  async function analyzeCrop() {
-    if (!symptoms.trim()) {
-      setError("Please describe the symptoms first.");
+  const handleImage = (file: File | undefined) => {
+    if (!file) return;
+
+    setImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const analyzeCrop = async () => {
+    if (!crop || !symptoms) {
+      setError("Please select a crop and describe the symptoms.");
       return;
     }
 
@@ -37,6 +61,17 @@ function App() {
     setAnalysis(null);
 
     try {
+      let imageData = null;
+
+      if (image) {
+        const base64 = await fileToBase64(image);
+
+        imageData = {
+          mimeType: image.type,
+          data: base64,
+        };
+      }
+
       const response = await fetch("http://localhost:5000/api/analyze", {
         method: "POST",
         headers: {
@@ -48,6 +83,7 @@ function App() {
           plantingDate,
           location,
           symptoms,
+          image: imageData,
         }),
       });
 
@@ -58,302 +94,349 @@ function App() {
       }
 
       setAnalysis(data.analysis);
+      setWeather(data.weather);
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function reset() {
+  const reset = () => {
     setAnalysis(null);
-    setSymptoms("");
+    setWeather(null);
+    setImage(null);
+    setImagePreview("");
     setError("");
-  }
+  };
 
   return (
     <div className="app">
-      <header className="navbar">
-        <div className="logo">
-          <div className="logoIcon">🌱</div>
-          <div>
-            <strong>AgroLens</strong>
-            <span>AI Agriculture</span>
+      <header className="topbar">
+        <div>
+          <div className="brand">🌱 AgroLens AI</div>
+          <div className="tagline">
+            AI-powered crop health & climate advisory
           </div>
         </div>
-
-        <div className="navStatus">
-          <span className="statusDot"></span>
-          AI System Online
-        </div>
+        <div className="status">● AI SYSTEM ONLINE</div>
       </header>
 
-      {!analysis && !loading && (
-        <main className="container">
-          <section className="hero">
-            <div>
-              <div className="eyebrow">SMART FIELD INTELLIGENCE</div>
-              <h1>
-                Protect your crop.
-                <br />
-                <span>Grow with confidence.</span>
-              </h1>
-              <p>
-                AI-powered crop health analysis and agricultural advisory for
-                farmers.
-              </p>
-            </div>
-
-            <div className="heroCard">
-              <div className="heroEmoji">🌾</div>
+      <main className="container">
+        {!analysis && !loading && (
+          <>
+            <section className="hero">
               <div>
-                <strong>AI Crop Doctor</strong>
-                <p>Analyze symptoms in seconds</p>
+                <p className="eyebrow">SMART FARMING PLATFORM</p>
+                <h1>
+                  Diagnose crop problems
+                  <br />
+                  <span>before they become losses.</span>
+                </h1>
+                <p>
+                  Combine farmer observations, crop images and local weather
+                  conditions to generate an actionable agricultural advisory.
+                </p>
               </div>
-            </div>
-          </section>
 
-          <section className="inspectionCard">
-            <div className="sectionHeader">
-              <div>
-                <div className="step">FIELD INSPECTION</div>
-                <h2>Start a new inspection</h2>
+              <div className="heroIcon">🌾</div>
+            </section>
+
+            <section className="card">
+              <div className="sectionTitle">
+                <div>
+                  <h2>New Field Inspection</h2>
+                  <p>Enter the farmer's field information below.</p>
+                </div>
+                <span className="step">01</span>
               </div>
-              <div className="stepNumber">01</div>
-            </div>
 
-            <div className="formGrid">
-              <div className="field">
-                <label>Farmer name</label>
-                <input
-                  value={farmerName}
-                  onChange={(e) => setFarmerName(e.target.value)}
-                  placeholder="Enter farmer name"
+              <div className="grid">
+                <label>
+                  Farmer name
+                  <input
+                    value={farmerName}
+                    onChange={(e) => setFarmerName(e.target.value)}
+                    placeholder="Rahim Ahmed"
+                  />
+                </label>
+
+                <label>
+                  Crop
+                  <select
+                    value={crop}
+                    onChange={(e) => setCrop(e.target.value)}
+                  >
+                    <option>Rice</option>
+                    <option>Wheat</option>
+                    <option>Potato</option>
+                    <option>Tomato</option>
+                    <option>Maize</option>
+                    <option>Vegetables</option>
+                  </select>
+                </label>
+
+                <label>
+                  Planting date
+                  <input
+                    type="date"
+                    value={plantingDate}
+                    onChange={(e) => setPlantingDate(e.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Field location
+                  <input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Rangpur"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Describe symptoms
+                <textarea
+                  value={symptoms}
+                  onChange={(e) => setSymptoms(e.target.value)}
+                  placeholder="Example: Brown spots are appearing on rice leaves and some leaves are turning yellow..."
                 />
-              </div>
+              </label>
 
-              <div className="field">
-                <label>Crop type</label>
-                <select
-                  value={crop}
-                  onChange={(e) => setCrop(e.target.value)}
+              <div className="quick">
+                <span>Quick symptoms:</span>
+
+                <button
+                  onClick={() =>
+                    setSymptoms(
+                      "Brown spots are appearing on leaves with yellowing around the spots."
+                    )
+                  }
                 >
-                  <option>Rice</option>
-                  <option>Wheat</option>
-                  <option>Potato</option>
-                  <option>Tomato</option>
-                  <option>Maize</option>
-                  <option>Vegetables</option>
-                </select>
+                  🟤 Brown spots
+                </button>
+
+                <button
+                  onClick={() =>
+                    setSymptoms(
+                      "Leaves are turning yellow and some lower leaves are drying."
+                    )
+                  }
+                >
+                  🟡 Yellow leaves
+                </button>
+
+                <button
+                  onClick={() =>
+                    setSymptoms(
+                      "White patches are appearing on the surface of the leaves."
+                    )
+                  }
+                >
+                  ⚪ White patches
+                </button>
               </div>
 
-              <div className="field">
-                <label>Planting date</label>
+              <div className="upload">
+                <div>
+                  <strong>📸 Crop image</strong>
+                  <p>Upload a clear photo of the affected plant.</p>
+                </div>
+
                 <input
-                  type="date"
-                  value={plantingDate}
-                  onChange={(e) => setPlantingDate(e.target.value)}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImage(e.target.files?.[0])}
                 />
               </div>
 
-              <div className="field">
-                <label>Field location</label>
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="District / Union"
-                />
-              </div>
-            </div>
+              {imagePreview && (
+                <div className="preview">
+                  <img src={imagePreview} alt="Crop preview" />
+                  <div>
+                    <strong>{image?.name}</strong>
+                    <p>Image ready for AI vision analysis.</p>
+                  </div>
+                </div>
+              )}
 
-            <div className="field symptomsField">
-              <label>Describe what you see in the field</label>
-              <textarea
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-                placeholder="Example: Brown spots have appeared on the rice leaves. Some leaves are turning yellow and drying from the edges..."
-                rows={6}
-              />
-            </div>
+              {error && <div className="error">{error}</div>}
 
-            <div className="quickSymptoms">
-              <span>Quick symptoms:</span>
-              <button
-                onClick={() =>
-                  setSymptoms(
-                    "Brown spots are appearing on rice leaves. Some leaves are turning yellow and drying from the edges. The disease seems to be spreading quickly."
-                  )
-                }
-              >
-                🟤 Brown spots
+              <button className="analyzeButton" onClick={analyzeCrop}>
+                Analyze Crop with AI →
               </button>
-              <button
-                onClick={() =>
-                  setSymptoms(
-                    "Leaves have yellow patches and the plants are becoming weak. Growth is slower than normal."
-                  )
-                }
-              >
-                🟡 Yellow leaves
-              </button>
-              <button
-                onClick={() =>
-                  setSymptoms(
-                    "Leaves have white powder-like patches and some leaves are curling."
-                  )
-                }
-              >
-                ⚪ White patches
-              </button>
+            </section>
+          </>
+        )}
+
+        {loading && (
+          <section className="loadingCard">
+            <div className="loader">🌱</div>
+            <h2>AgroLens is analyzing the field...</h2>
+
+            <div className="loadingSteps">
+              <div>✓ Processing farmer observations</div>
+              <div>✓ Checking crop image with computer vision</div>
+              <div>✓ Retrieving local weather conditions</div>
+              <div>◌ Generating agronomic advisory</div>
             </div>
-
-            {error && <div className="error">{error}</div>}
-
-            <button
-              className="analyzeButton"
-              onClick={analyzeCrop}
-              disabled={loading}
-            >
-              🔬 Analyze Crop with AI
-              <span>→</span>
-            </button>
-
-            <p className="privacy">
-              Your field information is used only to generate this advisory.
-            </p>
           </section>
-        </main>
-      )}
+        )}
 
-      {loading && (
-        <main className="loadingScreen">
-          <div className="loaderIcon">🌱</div>
-          <h1>Analyzing your field...</h1>
-          <p>AgroLens AI is examining the symptoms and preparing an advisory.</p>
-
-          <div className="loadingSteps">
-            <div className="active">✓ Farmer symptoms extracted</div>
-            <div className="active">✓ Crop information analyzed</div>
-            <div className="processing">◌ Generating diagnosis</div>
-            <div>○ Preparing treatment advisory</div>
-          </div>
-        </main>
-      )}
-
-      {analysis && (
-        <main className="container resultContainer">
-          <button className="backButton" onClick={reset}>
-            ← New inspection
-          </button>
-
-          <div className="resultHero">
-            <div>
-              <div className="eyebrow">AI FIELD HEALTH REPORT</div>
-              <h1>{analysis.diagnosis}</h1>
-              <p>AI-generated preliminary assessment for your {crop} field.</p>
-            </div>
-
-            <div className={`severity ${analysis.severity.toLowerCase()}`}>
-              {analysis.severity}
-            </div>
-          </div>
-
-          <div className="statsGrid">
-            <div className="statCard">
-              <span>AI Confidence</span>
-              <strong>{analysis.confidence}%</strong>
-            </div>
-
-            <div className="statCard">
-              <span>Visible Damage</span>
-              <strong>{analysis.visibleDamage}%</strong>
-            </div>
-
-            <div className="statCard">
-              <span>Crop</span>
-              <strong>{crop}</strong>
-            </div>
-
-            <div className="statCard">
-              <span>Location</span>
-              <strong>{location}</strong>
-            </div>
-          </div>
-
-          <div className="resultGrid">
-            <section className="resultCard">
-              <h3>🔎 Symptoms detected</h3>
-              <ul>
-                {analysis.symptomsDetected.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="resultCard">
-              <h3>🧬 Possible cause</h3>
-              <p>{analysis.possibleCause}</p>
-            </section>
-
-            <section className="resultCard">
-              <h3>🌦️ Weather risk</h3>
-              <p>{analysis.weatherRisk}</p>
-            </section>
-
-            <section className="resultCard">
-              <h3>🌿 Organic treatment</h3>
-              <ul>
-                {analysis.organicTreatment.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="resultCard">
-              <h3>🧪 Chemical treatment</h3>
-              <ul>
-                {analysis.chemicalTreatment.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="resultCard">
-              <h3>🛡️ Prevention</h3>
-              <ul>
-                {analysis.prevention.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </section>
-          </div>
-
-          <section className="advisory">
-            <div className="advisoryHeader">
+        {analysis && (
+          <section>
+            <div className="resultHeader">
               <div>
-                <div className="eyebrow">FARMER ADVISORY</div>
-                <h2>What you should do</h2>
+                <p className="eyebrow">FIELD HEALTH REPORT</p>
+                <h1>{crop} Analysis</h1>
+                <p>{location || "Location not provided"}</p>
               </div>
-              <div className="audioButton">🔊 Listen</div>
+
+              <button className="secondaryButton" onClick={reset}>
+                ← New Inspection
+              </button>
             </div>
 
-            <p>{analysis.farmerAdvice}</p>
+            {imagePreview && (
+              <div className="resultImage">
+                <img src={imagePreview} alt="Analyzed crop" />
+              </div>
+            )}
 
-            <div className="bengali">
-              <div>বাংলা পরামর্শ</div>
-              <p>{analysis.bengaliAdvice}</p>
+            <div className="stats">
+              <div className="stat">
+                <span>Diagnosis</span>
+                <strong>{analysis.diagnosis}</strong>
+              </div>
+
+              <div className="stat">
+                <span>Severity</span>
+                <strong>{analysis.severity}</strong>
+              </div>
+
+              <div className="stat">
+                <span>AI Confidence</span>
+                <strong>{analysis.confidence}%</strong>
+              </div>
+
+              <div className="stat">
+                <span>Visible Damage</span>
+                <strong>{analysis.visibleDamage}%</strong>
+              </div>
+            </div>
+
+            {weather && (
+              <div className="card weather">
+                <div className="sectionTitle">
+                  <div>
+                    <h2>🌦️ Hyperlocal Weather</h2>
+                    <p>{weather.location}</p>
+                  </div>
+                </div>
+
+                <div className="weatherGrid">
+                  <div>
+                    <span>Temperature</span>
+                    <strong>{weather.temperature}°C</strong>
+                  </div>
+
+                  <div>
+                    <span>Humidity</span>
+                    <strong>{weather.humidity}%</strong>
+                  </div>
+
+                  <div>
+                    <span>Rain</span>
+                    <strong>{weather.rain} mm</strong>
+                  </div>
+
+                  <div>
+                    <span>Wind</span>
+                    <strong>{weather.windSpeed} km/h</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="resultGrid">
+              <div className="card">
+                <h2>🔍 AI Findings</h2>
+                <p>{analysis.imageFindings}</p>
+
+                <h3>Symptoms detected</h3>
+                <ul>
+                  {analysis.symptomsDetected?.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+
+                <h3>Possible cause</h3>
+                <p>{analysis.possibleCause}</p>
+
+                <h3>Weather risk</h3>
+                <p>{analysis.weatherRisk}</p>
+              </div>
+
+              <div className="card">
+                <h2>🌿 Recommended Actions</h2>
+
+                <h3>Organic treatment</h3>
+                <ul>
+                  {analysis.organicTreatment?.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+
+                <h3>Chemical treatment</h3>
+                <ul>
+                  {analysis.chemicalTreatment?.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+
+                <h3>Spraying advice</h3>
+                <p>{analysis.sprayingAdvice}</p>
+              </div>
+            </div>
+
+            <div className="card advisory">
+              <h2>👨‍🌾 Farmer Advisory</h2>
+              <p>{analysis.farmerAdvice}</p>
+
+              <div className="bengali">
+                <h3>🇧🇩 বাংলা পরামর্শ</h3>
+                <p>{analysis.bengaliAdvice}</p>
+              </div>
+            </div>
+
+            <div className="card">
+              <h2>🛡️ Prevention</h2>
+              <ul>
+                {analysis.prevention?.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
             </div>
           </section>
-
-          <div className="disclaimer">
-            ⚠️ This is an AI-assisted preliminary assessment, not a substitute
-            for a qualified agricultural officer or locally registered product
-            label.
-          </div>
-        </main>
-      )}
+        )}
+      </main>
     </div>
   );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]);
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export default App;
